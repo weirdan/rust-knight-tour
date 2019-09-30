@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 type Point = (i32, i32);
 
 #[derive(Debug, Clone)]
@@ -14,6 +16,7 @@ impl Board {
     fn visit(&mut self, point: &Point) {
         self.cells[point.0 as usize][point.1 as usize] = true;
     }
+    #[allow(dead_code)]
     fn show_path(&self, path: &Vec<Point>) {
         let mut i = 0;
         let mut shown_board = vec![vec![String::from("_"); self.size()]; self.size()];
@@ -34,29 +37,45 @@ impl Board {
 }
 
 fn main() {
-    let mut board = Board::new(6);
-    let initial_position = (0, 0);
-    board.visit(&initial_position);
-    run(&board, &vec![initial_position]);
+    let size = 16;
+
+    let total = Instant::now();
+    for i in 0..size {
+        for j in 0..size {
+            let mut board = Board::new(size);
+            let initial_position = (i as i32, j as i32);
+            board.visit(&initial_position);
+            let start = Instant::now();
+            match run(&board, &vec![initial_position]) {
+                Ok(_) => println!("{:?} {:?}", initial_position, start.elapsed()),
+                Err(_) => println!("{:?} No solutions, {:?}", initial_position, start.elapsed()),
+            }
+        }
+    }
+    println!("Total time: {:?}", total.elapsed());
 }
 
-fn run(board: &Board, path: &Vec<Point>) {
+fn run(board: &Board, path: &Vec<Point>) -> Result<Vec<Point>, bool> {
     if path.len() >= board.size() * board.size() {
-        println!("Found solution");
-        board.show_path(&path);
-        std::process::exit(0);
+        return Ok(path.clone());
     }
-    for one_move in allowed_moves(board, path.last().expect("empty path")) {
+    let mut sorted_moves = allowed_moves(board, path.last().unwrap());
+    sorted_moves.sort_by(|a, b| {
+        allowed_moves(board, a)
+            .len()
+            .cmp(&allowed_moves(board, b).len())
+    });
+    for one_move in sorted_moves {
         let mut new_path = path.clone();
         let mut new_board = board.clone();
         new_path.push(one_move);
         new_board.visit(&one_move);
-        run(&new_board, &new_path);
+        match run(&new_board, &new_path) {
+            Ok(path) => return Ok(path),
+            Err(_) => (),
+        }
     }
-    if path.len() == 1 {
-        println!("No solutions");
-        std::process::exit(1);
-    }
+    Err(true)
 }
 
 fn knight_moves(from: &Point) -> Vec<Point> {
