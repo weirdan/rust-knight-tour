@@ -103,3 +103,54 @@ fn allowed_moves(b: &Board, from: &Point) -> Vec<Point> {
         })
         .collect::<Vec<Point>>()
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+    #[test]
+    fn knight_has_8_moves() {
+        let all_moves = knight_moves(&(10, 10));
+        assert_eq!(8, all_moves.len());
+    }
+
+    #[test]
+    fn knight_in_top_left_corner_has_2_moves() {
+        let top_left_corner_moves = allowed_moves(&Board::new(5), &(0, 0));
+        assert_eq!(2, top_left_corner_moves.len());
+    }
+
+    #[test]
+    fn knight_ignores_moves_to_visited_squares() {
+        let mut board = Board::new(4);
+        board.visit(&(0, 0));
+        board.visit(&(2, 1));
+        board.visit(&(1, 2));
+        let moves = allowed_moves(&board, &(0, 0));
+        assert_eq!(0, moves.len());
+    }
+
+    #[test]
+    fn knight_cannot_tour_on_3x3_board() {
+        for i in 0..3 {
+            for j in 0..3 {
+                let mut board = Board::new(3);
+                let initial_position = (i as i32, j as i32);
+                board.visit(&initial_position);
+                run(&board, &vec![initial_position]).expect_err("Should have failed");
+            }
+        }
+    }
+
+    #[test]
+    fn knight_can_tour_on_6x6_board() {
+        for i in 0..6 {
+            for j in 0..6 {
+                let mut board = Board::new(6);
+                let initial_position = (i as i32, j as i32);
+                board.visit(&initial_position);
+                run(&board, &vec![initial_position]).expect("Should have passed");
+            }
+        }
+    }
+}
+
