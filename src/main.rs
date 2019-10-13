@@ -1,4 +1,5 @@
 use std::time::Instant;
+use std::thread;
 
 type Point = (i32, i32);
 
@@ -40,19 +41,27 @@ fn main() {
     let size = 16;
 
     let total = Instant::now();
+    let mut threads = Vec::new();
     for i in 0..size {
         for j in 0..size {
-            let mut board = Board::new(size);
-            let initial_position = (i as i32, j as i32);
-            board.visit(&initial_position);
-            let start = Instant::now();
-            match run(&board, &vec![initial_position]) {
-                Ok(_) => println!("{:?} {:?}", initial_position, start.elapsed()),
-                Err(_) => println!("{:?} No solutions, {:?}", initial_position, start.elapsed()),
-            }
+            threads.push(thread::spawn(move || solve(size, i, j)))
         }
     }
+    for t in threads {
+        t.join().unwrap()
+    }
     println!("Total time: {:?}", total.elapsed());
+}
+
+fn solve(size: usize, i: usize, j: usize) {
+    let mut board = Board::new(size);
+    let initial_position = (i as i32, j as i32);
+    board.visit(&initial_position);
+    let start = Instant::now();
+    match run(&board, &vec![initial_position]) {
+        Ok(_) => println!("{:?} {:?}", initial_position, start.elapsed()),
+        Err(_) => println!("{:?} No solutions, {:?}", initial_position, start.elapsed()),
+    }
 }
 
 fn run(board: &Board, path: &Vec<Point>) -> Result<Vec<Point>, bool> {
@@ -153,4 +162,3 @@ mod tests {
         }
     }
 }
-
