@@ -1,5 +1,5 @@
-use std::time::Instant;
 use std::thread;
+use std::time::Instant;
 
 type Point = (i32, i32);
 
@@ -14,16 +14,14 @@ impl Board {
             cells: vec![vec![false; size]; size],
         }
     }
-    fn visit(&mut self, point: &Point) {
-        self.cells[point.0 as usize][point.1 as usize] = true;
+    fn visit(&mut self, &(x, y): &Point) {
+        self.cells[x as usize][y as usize] = true;
     }
     #[allow(dead_code)]
     fn show_path(&self, path: &Vec<Point>) {
-        let mut i = 0;
         let mut shown_board = vec![vec![String::from("_"); self.size()]; self.size()];
-        for point in path {
-            i += 1;
-            shown_board[point.0 as usize][point.1 as usize] = i.to_string();
+        for (i, &(x, y)) in path.iter().enumerate() {
+            shown_board[x as usize][y as usize] = i.to_string();
         }
         for row in shown_board {
             println!("{:?}", row);
@@ -32,8 +30,8 @@ impl Board {
     fn size(&self) -> usize {
         self.cells.len()
     }
-    fn visited(&self, point: &Point) -> bool {
-        self.cells[point.0 as usize][point.1 as usize]
+    fn visited(&self, &(x, y): &Point) -> bool {
+        self.cells[x as usize][y as usize]
     }
 }
 
@@ -44,7 +42,7 @@ fn main() {
     let mut threads = Vec::new();
     for i in 0..size {
         for j in 0..size {
-            threads.push(thread::spawn(move || solve(size, i, j)))
+            threads.push(thread::spawn(move || run(size, i, j)))
         }
     }
     for t in threads {
@@ -53,62 +51,61 @@ fn main() {
     println!("Total time: {:?}", total.elapsed());
 }
 
-fn solve(size: usize, i: usize, j: usize) {
+fn run(size: usize, i: usize, j: usize) {
     let mut board = Board::new(size);
     let initial_position = (i as i32, j as i32);
     board.visit(&initial_position);
     let start = Instant::now();
-    match run(&board, &vec![initial_position]) {
-        Ok(_) => println!("{:?} {:?}", initial_position, start.elapsed()),
-        Err(_) => println!("{:?} No solutions, {:?}", initial_position, start.elapsed()),
+    match solve(&board, &vec![initial_position]) {
+        Some(_) => println!("{:?} {:?}", initial_position, start.elapsed()),
+        None => println!("{:?} No solutions, {:?}", initial_position, start.elapsed()),
     }
 }
 
-fn run(board: &Board, path: &Vec<Point>) -> Result<Vec<Point>, bool> {
+fn solve(board: &Board, path: &Vec<Point>) -> Option<Vec<Point>> {
     if path.len() >= board.size() * board.size() {
-        return Ok(path.clone());
+        return Some(path.clone());
     }
-    let mut sorted_moves = allowed_moves(board, path.last().unwrap());
-    sorted_moves.sort_by(|a, b| {
-        allowed_moves(board, a)
-            .len()
-            .cmp(&allowed_moves(board, b).len())
+    let mut moves = allowed_moves(&board, path.last().unwrap());
+    // try branch having minumum of next moves first
+    moves.sort_by(|a, b| {
+        let next_a = allowed_moves(&board, a);
+        let next_b = allowed_moves(&board, b);
+        next_a.len().cmp(&next_b.len())
     });
-    for one_move in sorted_moves {
+    for one_move in moves {
         let mut new_path = path.clone();
         let mut new_board = board.clone();
         new_path.push(one_move);
         new_board.visit(&one_move);
-        match run(&new_board, &new_path) {
-            Ok(path) => return Ok(path),
-            Err(_) => (),
+        if let Some(path) = solve(&new_board, &new_path) {
+            return Some(path);
         }
     }
-    Err(true)
+    None
 }
 
-fn knight_moves(from: &Point) -> Vec<Point> {
+fn knight_moves(&(x, y): &Point) -> Vec<Point> {
     vec![
-        (from.0 + 1, from.1 + 2),
-        (from.0 + 2, from.1 + 1),
-        (from.0 + 2, from.1 - 1),
-        (from.0 + 1, from.1 - 2),
-        (from.0 - 1, from.1 - 2),
-        (from.0 - 2, from.1 - 1),
-        (from.0 - 2, from.1 + 1),
-        (from.0 - 1, from.1 + 2),
+        (x + 1, y + 2),
+        (x + 2, y + 1),
+        (x + 2, y - 1),
+        (x + 1, y - 2),
+        (x - 1, y - 2),
+        (x - 2, y - 1),
+        (x - 2, y + 1),
+        (x - 1, y + 2),
     ]
 }
 
 fn allowed_moves(b: &Board, from: &Point) -> Vec<Point> {
+    let size = b.size() as i32;
     knight_moves(from)
         .into_iter()
-        .filter(|next| {
-            next.0 >= 0
-                && next.0 < b.size() as i32
-                && next.1 >= 0
-                && next.1 < b.size() as i32
-                && !b.visited(next)
+        .filter(|&(x, y)| {
+            x >= 0 && x < size 
+            && y >= 0 && y < size 
+            && !b.visited(&(x, y))
         })
         .collect::<Vec<Point>>()
 }
@@ -145,7 +142,9 @@ mod tests {
                 let mut board = Board::new(3);
                 let initial_position = (i as i32, j as i32);
                 board.visit(&initial_position);
-                run(&board, &vec![initial_position]).expect_err("Should have failed");
+                if let Some(_) = solve(&board, &vec![initial_position]) {
+                    panic!("Should have failed");
+                }
             }
         }
     }
@@ -157,7 +156,7 @@ mod tests {
                 let mut board = Board::new(6);
                 let initial_position = (i as i32, j as i32);
                 board.visit(&initial_position);
-                run(&board, &vec![initial_position]).expect("Should have passed");
+                solve(&board, &vec![initial_position]).expect("Should have passed");
             }
         }
     }
