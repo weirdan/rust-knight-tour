@@ -1,4 +1,4 @@
-use std::thread;
+use threadpool::ThreadPool;
 use std::time::Instant;
 
 type Point = (i32, i32);
@@ -39,15 +39,13 @@ fn main() {
     let size = 16;
 
     let total = Instant::now();
-    let mut threads = Vec::new();
+    let pool = ThreadPool::new(num_cpus::get());
     for i in 0..size {
         for j in 0..size {
-            threads.push(thread::spawn(move || run(size, i, j)))
+            pool.execute(move || run(size, i, j));
         }
     }
-    for t in threads {
-        t.join().unwrap()
-    }
+    pool.join();
     println!("Total time: {:?}", total.elapsed());
 }
 
